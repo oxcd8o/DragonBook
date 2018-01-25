@@ -1,41 +1,61 @@
 #include <iostream>
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include <sstream>
+#include <unordered_map>
 
 /*
- * "2 + 3 - 4" -> "23+4-"
- * "2 + 3 * 4" -> "34*2+"
+ * statement -> <EOF>
+ *              expression
  * 
+ * expression -> factor <OpSimple> expression
+ *               factor
  * 
+ * factor -> <digit> <OpPrivileged> factor
+ *           <digit> <EOF>
+ * 
+ * <digit> -> '0' | '1' | '2' | ... | '9'
+ * 
+ * <OpSimple> -> '+' | '-'
+ * 
+ * <OpPrivileged> -> '*' | '/'
+ * 
+ * <EOF> -> '\0'
  * 
  */
-
-class ParsingError: public std::exception
-{
-    public:
-        ParsingError(const std::string& line, size_t position, const char* error)
-        {
-            std::stringstream ss;
-            ss << error << " at line:\n'" << line << "'\n"
-               << std::string(position, ' ') << '^';
-            what_ = std::move(ss.str());
-        }
-
-        virtual const char* what() const noexcept override { return what_.c_str(); }
-
-    private:
-        std::string what_;
-
-};
 
 class Token
 {
     public:
-        Token(char token = '\0'): token_(token) {}
-        explicit operator std::string() const { return std::string({token_}); }
+        enum class Type { None, Digit, OperationPrivileged, OperationSimple, Other };
+
+    public:
+        Token(char token = '\0', int64_t position = 0)
+            : token_(token)
+            , position_(position)
+            , type_(Token::Type::None)
+        {
+            if (isdigit(token_)) {
+                type_ = Token::Type::Digit;
+            } else if (token_ == '*' || token_ == '/') {
+                type_ = Token::Type::OperationPrivileged;
+            } else if (token_ == '-' || token_ == '+') {
+                type_ = Token::Type::OperationSimple;
+            } else if (token_ != '\0') {
+                type_ = Token::Type::Other;
+            }
+        }
+
+        Token::Type type() const { return type_; }
+        int64_t position() const { return position_; }
+
+        explicit operator std::string() const { return {token_}; }
+        operator bool() const { return token_ != '\0'; }
+
     private:
         char token_;
+        size_t position_;
+        Token::Type type_;
 };
 
 std::ostream& operator<<(std::ostream& os, const Token& t)
@@ -47,21 +67,30 @@ std::ostream& operator<<(std::ostream& os, const Token& t)
 class Parser
 {
     public:
+        struct ParsingError: public std::runtime_error
+        {
+            ParsingError(const std::string& error)
+                : std::runtime_error(error)
+            {}
+        };
+
+    public:
         Parser(const std::string& line);
 
-        char peek();
+        Token peek();
+        Token get();
         inline bool eol() const { return it_ == line_.end(); }
 
-        Token digit();
-        Token operationPrivileged();
-        Token operationSimple();
-        void expression();
+        bool expression();
+        bool factor();
+
+        void throwSyntaxError(const std::string& error, Token t) const;
 
         explicit operator std::string() const { return representation_.str(); }
 
     private:
         std::string line_;
-        std::string::const_iterator it_;
+        decltype(std::declval<std::string>().begin()) it_;
 
         std::stringstream representation_;
 };
@@ -70,56 +99,77 @@ Parser::Parser(const std::string& line)
     : line_(line)
     , it_(line_.begin())
 {
-    expression();
+    Token start = peek();
+    if (!expression()) {
+        throwSyntaxError("Expected single digit or expression", start);
+    }
 }
 
-void Parser::expression()
+bool Parser::expression()
 {
-    representation_ << digit();
+    std::cerr << "Parser::expression()" << std::endl;
 
+    factor();
+
+    Token op = peek();
+
+    if (op.type() == Token::Type::OperationSimple) {
+        get();
+        Token tmp = peek();
+        if (!expression()) {
+            throwSyntaxError("Expected expression", tmp);
+        }
+        representation_ << op;
+    } else if (op) {
+        return false;
+    }
+
+    return true;
+}
+
+bool Parser::factor()
+{
+    Token left = get();
+    Token op = peek();
+
+    if (!left || left.type() != Token::Type::Digit) {
+        throwSyntaxError("Expected digit", left);
+    }
+    representation_ << left;
+
+    if (op.type() == Token::Type::OperationPrivileged) {
+        get();
+        factor();
+        representation_ << op;
+    }
+
+    return true;
+}
+
+Token Parser::peek()
+{
     if (eol()) {
-        return;
+        return {};
     }
-
-    Token op = operationSimple();
-    expression();
-    
-    representation_ << op;
+    return {*it_, it_ - line_.begin()};
 }
 
-Token Parser::digit()
+Token Parser::get()
 {
-    char c = peek();
-    if (!isdigit(c)) {
-        throw ParsingError(line_, it_ - line_.begin(), "Digit expected");
+    Token t = peek();
+    if (t) {
+        ++it_;
     }
-    return Token(c);
+    return t;
 }
 
-Token Parser::operationSimple()
+void Parser::throwSyntaxError(const std::string& error, Token t) const
 {
-    char c = peek();
-    if (c != '-' && c != '+') {
-        throw ParsingError(line_, it_ - line_.begin(), "'+' or '-' expected");
-    }
-    return Token(c);
-}
+    std::stringstream ss;
+    ss << error << " at line:\n'" << line_ << "'\n"
+       << std::string(t.position() + 1, ' ') << '^';
 
-char Parser::peek()
-{
-    if (eol()) {
-        throw ParsingError(line_, line_.size(), "Parser went out of line");
-    }
-
-    char c = *it_;
-    ++it_;
-    return c;
-}
-
-std::ostream& operator<<(std::ostream& os, const Parser& p)
-{
-    os << static_cast<std::string>(p);
-    return os;
+    throw ParsingError(ss.str());
 }
 
 int main()
@@ -128,8 +178,8 @@ int main()
     while (std::cin) {
         std::getline(std::cin, line);
         try {
-            std::cout << Parser(line) << std::endl;
-        } catch (const ParsingError& e) {
+            std::cout << static_cast<std::string>(Parser(line)) << std::endl;
+        } catch (const Parser::ParsingError& e) {
             std::cerr << e.what() << std::endl;
         }
     }
