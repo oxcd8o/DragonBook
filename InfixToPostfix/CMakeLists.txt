@@ -4,4 +4,6 @@ project(InfixToPostfix VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++14")
 
-add_executable(infix_to_postfix infix_to_postfix.cpp)
+add_executable(infix_to_postfix infix_to_postfix.cpp token.cpp parser.cpp)
+
+target_include_directories(infix_to_postfix PRIVATE .)
