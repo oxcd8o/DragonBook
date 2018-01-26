@@ -2,9 +2,6 @@
 
 #include <iostream>
 #include <string>
-#include <stdexcept>
-#include <sstream>
-#include <unordered_map>
 
 int main()
 {
