@@ -18,8 +18,12 @@ class Parser
     public:
         Parser(const std::string& line);
 
+        explicit operator std::string() const;
+
+    private:
         Token peek();
         Token get();
+
         inline bool eol() const { return it_ == line_.end(); }
 
         bool expression();
@@ -27,9 +31,6 @@ class Parser
 
         void throwSyntaxError(const std::string& error, Token t) const;
 
-        explicit operator std::string() const { return representation_.str(); }
-
-    private:
         std::string line_;
         decltype(std::declval<std::string>().begin()) it_;
 

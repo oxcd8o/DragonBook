@@ -30,6 +30,11 @@ Parser::Parser(const std::string& line)
     }
 }
 
+explicit Parser::operator std::string() const
+{
+    return representation_.str();
+}
+
 bool Parser::expression()
 {
     factor();
