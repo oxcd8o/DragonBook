@@ -19,7 +19,7 @@ Token Parser::peek()
 
 Token Parser::get()
 {
-    Token newToken("", position_.line, position_.symbol);
+    Token newToken(position_.line, position_.symbol);
 
     while (isspace(peekChar())) {
         getChar();
@@ -33,12 +33,14 @@ Token Parser::get()
             getChar();
             c = peekChar();
         } while (isdigit(c));
+        newToken.type(Token::Type::Number);
     } else if (isalpha(c)) {
         do {
             newToken << c;
             getChar();
             c = peekChar();
         } while (isalnum(c));
+        newToken.type(Token::Type::Id);
     } else if (isServiceSymbol(c)) {
         newToken << c;
         getChar();
@@ -47,7 +49,8 @@ Token Parser::get()
             newToken << f;
             getChar();
         }
-    } else if (c == EOF) {
+        newToken.type(Token::Type::Service);
+} else if (c == EOF) {
         // pass
     } else {
         throw ParsingError() << "Unexpected symbol " << c << " at "
