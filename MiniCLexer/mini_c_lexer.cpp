@@ -8,7 +8,7 @@
 int main()
 {
     try {
-        std::string data = "int b = 123 +   765;\nif (a456 <=8);";
+        std::string data = "int b = 123 +   765; //123456 66 33 ss\nif (a456 <= \"896\");";
         std::stringstream ss(data);
 
         Parser p(&ss);

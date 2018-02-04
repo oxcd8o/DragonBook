@@ -7,7 +7,7 @@
 class Token
 {
     public:
-        enum class Type { None, Number, Id, Service };
+        enum class Type { None, Number, Id, Literal, Service, Comment };
 
     public:
         Token();
@@ -21,6 +21,7 @@ class Token
         Type type() const { return type_; }
 
         void type(Type t) { type_ = t; }
+        void erase() { token_.resize(0); }
 
         friend Token& operator<<(Token& t, int c);
 

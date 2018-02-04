@@ -21,7 +21,9 @@ std::ostream& operator<<(std::ostream& os, const Token::Type& t)
         {static_cast<int64_t>(Token::Type::None),    "Token::Type::None"},
         {static_cast<int64_t>(Token::Type::Number),  "Token::Type::Number"},
         {static_cast<int64_t>(Token::Type::Id),      "Token::Type::Id"},
-        {static_cast<int64_t>(Token::Type::Service), "Token::Type::Service"}
+        {static_cast<int64_t>(Token::Type::Literal),      "Token::Type::Literal"},
+        {static_cast<int64_t>(Token::Type::Service), "Token::Type::Service"},
+        {static_cast<int64_t>(Token::Type::Comment), "Token::Type::Comment"}
     };
 
     os << typeNames.at(static_cast<int64_t>(t));

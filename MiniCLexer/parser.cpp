@@ -27,6 +27,12 @@ Token Parser::get()
 
     int c = peekChar();
 
+    /*
+     * First we read next appropriate token.
+     * Number = [0-9]+
+     * Id = [a-zA-Z][a-zA-Z0-9]*
+     * Service = defined by isServiceSymbol()
+     */
     if (isdigit(c)) {
         do {
             newToken << c;
@@ -50,11 +56,43 @@ Token Parser::get()
             getChar();
         }
         newToken.type(Token::Type::Service);
-} else if (c == EOF) {
+    } else if (c == EOF) {
         // pass
     } else {
-        throw ParsingError() << "Unexpected symbol " << c << " at "
-                             << position_.line << ";" << position_.symbol;
+        throw ParsingError()
+            << "Unexpected symbol " << c << " at "
+            << position_.line << ";" << position_.symbol;
+    }
+
+    /*
+     * Second we need to consume more characters in two special cases:
+     * comments (only // style right now) and string literals.
+     */
+    if (newToken.type() == Token::Type::Service) {
+        if (newToken.token() == "//") {
+            for (c = peekChar(); c != '\n' && c != EOF; c = peekChar()) {
+                newToken << c;
+                getChar();
+            }
+            newToken.type(Token::Type::Comment);
+        } else if (newToken.token() == "\"") {
+            newToken.erase();
+            newToken.type(Token::Type::Literal);
+            bool finished = false;
+            for (c = peekChar(); !finished && c != EOF; c = peekChar()) {
+                newToken << c;
+                getChar();
+                if (c == '"') {
+                    finished = true;
+                }
+            }
+
+            if (!finished) {
+                throw ParsingError()
+                    << "String literal without closing <\"> at "
+                    << newToken.line() << ";" << newToken.position();
+            }
+        }
     }
 
     Token oldToken = currentToken_;
@@ -82,7 +120,10 @@ bool Parser::isFollowupSymbol(char c, char f)
         {'+', {'+'}},
         {'!', {'='}},
         {'|', {'|'}},
-        {'&', {'&'}}
+        {'&', {'&'}},
+        {'=', {'='}},
+        {'/', {'/', '*'}},
+        {'*', {'/'}}
     };
 
     return followupSymbols.count(c) && followupSymbols.at(c).count(f);
